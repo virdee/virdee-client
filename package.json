@@ -16,5 +16,8 @@
   "bugs": {
     "url": "https://github.com/virdee/virdee-client/issues"
   },
-  "homepage": "https://github.com/virdee/virdee-client#readme"
+  "homepage": "https://github.com/virdee/virdee-client#readme",
+  "dependencies": {
+    "node-fetch": "^2.6.0"
+  }
 }

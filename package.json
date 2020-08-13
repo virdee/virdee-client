@@ -24,6 +24,7 @@
   "homepage": "https://github.com/virdee/virdee-client#readme",
   "dependencies": {
     "@types/node-fetch": "^2.5.7",
-    "node-fetch": "^2.6.0"
+    "node-fetch": "^2.6.0",
+    "typescript": "^3.9.7"
   }
 }

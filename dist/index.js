@@ -11,4 +11,6 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./virdeeClient"), exports);
+__exportStar(require("./createDataObject"), exports);
+__exportStar(require("./createWhereObject"), exports);
 //# sourceMappingURL=index.js.map

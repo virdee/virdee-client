@@ -17,6 +17,12 @@ export enum AuthStatus {
   auth = "auth",
 }
 
+class RequestError extends Error {
+  constructor(message) {
+    super(message);
+  }
+}
+
 export class VirdeeClient {
   public url: string;
   public bearerToken: string;
@@ -25,7 +31,7 @@ export class VirdeeClient {
   constructor(url: string, options: OptionsObject = {}) {
     this.url = url;
     this.bearerToken = options.bearerToken || "";
-    this.logger = options.logger || undefined;
+    this.logger = options.logger || console;
   }
 
   waitInterval(): Promise<unknown> {
@@ -50,16 +56,33 @@ export class VirdeeClient {
     })
       .then(async (res) => {
         const json = await res.json();
+
+        if (res.status !== 200) {
+          const err = new RequestError(
+            `status: ${res.status} ${JSON.stringify(json)}`
+          );
+          throw err;
+        }
+
         return json;
       })
-      .catch(async () => {
+      .catch(async (e) => {
+        if (e instanceof RequestError) {
+          throw e;
+        }
+
+        this.logger.error(e, "virdee-client error");
+
         if (retries === 0) {
           throw new Error("Maximum retries exceeded");
         }
+
+        await this.waitInterval();
+
         if (this.logger && this.logger.info) {
           this.logger.info("sendGraphQL retrying");
         }
-        await this.waitInterval();
+
         return await this.sendGraphQL(
           query,
           variables,

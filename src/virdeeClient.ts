@@ -1,4 +1,5 @@
 import fetch from "node-fetch";
+import { Logger } from "pino";
 
 type VirdeeResponse = ResponseObject;
 
@@ -7,9 +8,11 @@ interface ResponseObject {
   data?: any;
 }
 
-interface OptionsObject {
-  logger?: any;
+interface ClientOptions {
+  reqId: string;
+  logger: Logger;
   bearerToken?: string;
+  retries?: number;
 }
 
 export enum AuthStatus {
@@ -18,7 +21,7 @@ export enum AuthStatus {
 }
 
 class RequestError extends Error {
-  constructor(message) {
+  constructor(message: string) {
     super(message);
   }
 }
@@ -26,69 +29,98 @@ class RequestError extends Error {
 export class VirdeeClient {
   public url: string;
   public bearerToken: string;
-  public logger: any;
+  public log: Logger;
+  public reqId: string;
   private interval = 200;
-  constructor(url: string, options: OptionsObject = {}) {
+  private retries: number;
+
+  constructor(url: string, options: ClientOptions) {
     this.url = url;
     this.bearerToken = options.bearerToken || "";
-    this.logger = options.logger || console;
+    this.log = options.logger;
+    this.reqId = options.reqId;
+    this.retries = options.retries || 5;
   }
 
-  waitInterval(): Promise<unknown> {
-    return new Promise((resolve) => setTimeout(resolve, this.interval));
+  private waitInterval(interval: number): Promise<unknown> {
+    return new Promise((resolve) => setTimeout(resolve, interval));
   }
 
   async sendGraphQL(
     query: string,
-    variables?: Record<string, unknown>,
-    authorized: AuthStatus = AuthStatus.noAuth,
-    retries = 5
+    authStatus: AuthStatus,
+    variables?: Record<string, unknown>
+  ): Promise<VirdeeResponse> {
+    return this.internalSendGraphQLRetries(query, authStatus, variables);
+  }
+
+  async sendGraphQLAuth(
+    query: string,
+    variables?: Record<string, unknown>
+  ): Promise<VirdeeResponse> {
+    return this.internalSendGraphQLRetries(query, AuthStatus.auth, variables);
+  }
+
+  async sendGraphQLUnauth(
+    query: string,
+    variables?: Record<string, unknown>
+  ): Promise<VirdeeResponse> {
+    return this.internalSendGraphQLRetries(query, AuthStatus.noAuth, variables);
+  }
+
+  private async internalSendGraphQLRetries(
+    query: string,
+    authorized: AuthStatus,
+    variables?: Record<string, unknown>
   ): Promise<VirdeeResponse> {
     const headers: { [key: string]: string } = {
       "Content-Type": "application/json",
+      "X-Request-ID": this.reqId,
     };
-    if (authorized === AuthStatus.auth)
+
+    if (authorized === AuthStatus.auth) {
       headers["Authorization"] = `Bearer ${this.bearerToken}`;
-    return fetch(this.url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ query, variables }),
-    })
-      .then(async (res) => {
-        const json = await res.json();
+    }
 
-        if (res.status !== 200) {
-          const err = new RequestError(
-            `status: ${res.status} ${JSON.stringify(json)}`
-          );
-          throw err;
-        }
+    for (let i = 0; i < this.retries; i++) {
+      try {
+        return await this.internalSendGraphQL(query, variables, headers);
+      } catch (e) {
+        this.log.error(e, "virdee-client error");
 
-        return json;
-      })
-      .catch(async (e) => {
         if (e instanceof RequestError) {
           throw e;
         }
 
-        this.logger.error(e, "virdee-client error");
+        const interval = this.interval + i * 100; // Increase interval by 100 msed on each retry
+        await this.waitInterval(interval);
+        this.log.info("sendGraphQL retrying");
+      }
+    }
 
-        if (retries === 0) {
-          throw new Error("Maximum retries exceeded");
-        }
+    throw new Error("Maximum retries exceeded");
+  }
 
-        await this.waitInterval();
+  private async internalSendGraphQL(
+    query: string,
+    variables: Record<string, unknown> | unknown,
+    headers: { [key: string]: string }
+  ): Promise<VirdeeResponse> {
+    return fetch(this.url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ query, variables }),
+    }).then(async (res) => {
+      const json = await res.json();
 
-        if (this.logger && this.logger.info) {
-          this.logger.info("sendGraphQL retrying");
-        }
-
-        return await this.sendGraphQL(
-          query,
-          variables,
-          authorized,
-          retries - 1
+      if (res.status !== 200) {
+        const err = new RequestError(
+          `status: ${res.status} ${JSON.stringify(json)}`
         );
-      });
+        throw err;
+      }
+
+      return json;
+    });
   }
 }

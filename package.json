@@ -26,5 +26,8 @@
     "@types/node-fetch": "^2.5.7",
     "node-fetch": "^2.6.0",
     "typescript": "^3.9.7"
+  },
+  "devDependencies": {
+    "@types/pino": "^6.3.3"
   }
 }

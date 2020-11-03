@@ -65,34 +65,88 @@ var RequestError = /** @class */ (function (_super) {
 }(Error));
 var VirdeeClient = /** @class */ (function () {
     function VirdeeClient(url, options) {
-        if (options === void 0) { options = {}; }
         this.interval = 200;
         this.url = url;
         this.bearerToken = options.bearerToken || "";
-        this.logger = options.logger || console;
+        this.log = options.logger;
+        this.reqId = options.reqId;
+        this.retries = options.retries || 5;
     }
-    VirdeeClient.prototype.waitInterval = function () {
-        var _this = this;
-        return new Promise(function (resolve) { return setTimeout(resolve, _this.interval); });
+    VirdeeClient.prototype.waitInterval = function (interval) {
+        return new Promise(function (resolve) { return setTimeout(resolve, interval); });
     };
-    VirdeeClient.prototype.sendGraphQL = function (query, variables, authorized, retries) {
-        if (authorized === void 0) { authorized = AuthStatus.noAuth; }
-        if (retries === void 0) { retries = 5; }
+    VirdeeClient.prototype.sendGraphQL = function (query, authStatus, variables) {
         return __awaiter(this, void 0, void 0, function () {
-            var headers;
+            return __generator(this, function (_a) {
+                return [2 /*return*/, this.internalSendGraphQLRetries(query, authStatus, variables)];
+            });
+        });
+    };
+    VirdeeClient.prototype.sendGraphQLAuth = function (query, variables) {
+        return __awaiter(this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                return [2 /*return*/, this.internalSendGraphQLRetries(query, AuthStatus.auth, variables)];
+            });
+        });
+    };
+    VirdeeClient.prototype.sendGraphQLUnauth = function (query, variables) {
+        return __awaiter(this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                return [2 /*return*/, this.internalSendGraphQLRetries(query, AuthStatus.noAuth, variables)];
+            });
+        });
+    };
+    VirdeeClient.prototype.internalSendGraphQLRetries = function (query, authorized, variables) {
+        return __awaiter(this, void 0, void 0, function () {
+            var headers, i, e_1, interval;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        headers = {
+                            "Content-Type": "application/json",
+                            "X-Request-ID": this.reqId,
+                        };
+                        if (authorized === AuthStatus.auth) {
+                            headers["Authorization"] = "Bearer " + this.bearerToken;
+                        }
+                        i = 0;
+                        _a.label = 1;
+                    case 1:
+                        if (!(i < this.retries)) return [3 /*break*/, 7];
+                        _a.label = 2;
+                    case 2:
+                        _a.trys.push([2, 4, , 6]);
+                        return [4 /*yield*/, this.internalSendGraphQL(query, variables, headers)];
+                    case 3: return [2 /*return*/, _a.sent()];
+                    case 4:
+                        e_1 = _a.sent();
+                        this.log.error(e_1, "virdee-client error");
+                        if (e_1 instanceof RequestError) {
+                            throw e_1;
+                        }
+                        interval = this.interval + i * 100;
+                        return [4 /*yield*/, this.waitInterval(interval)];
+                    case 5:
+                        _a.sent();
+                        this.log.info("sendGraphQL retrying");
+                        return [3 /*break*/, 6];
+                    case 6:
+                        i++;
+                        return [3 /*break*/, 1];
+                    case 7: throw new Error("Maximum retries exceeded");
+                }
+            });
+        });
+    };
+    VirdeeClient.prototype.internalSendGraphQL = function (query, variables, headers) {
+        return __awaiter(this, void 0, void 0, function () {
             var _this = this;
             return __generator(this, function (_a) {
-                headers = {
-                    "Content-Type": "application/json",
-                };
-                if (authorized === AuthStatus.auth)
-                    headers["Authorization"] = "Bearer " + this.bearerToken;
                 return [2 /*return*/, node_fetch_1.default(this.url, {
                         method: "POST",
                         headers: headers,
                         body: JSON.stringify({ query: query, variables: variables }),
-                    })
-                        .then(function (res) { return __awaiter(_this, void 0, void 0, function () {
+                    }).then(function (res) { return __awaiter(_this, void 0, void 0, function () {
                         var json, err;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
@@ -104,28 +158,6 @@ var VirdeeClient = /** @class */ (function () {
                                         throw err;
                                     }
                                     return [2 /*return*/, json];
-                            }
-                        });
-                    }); })
-                        .catch(function (e) { return __awaiter(_this, void 0, void 0, function () {
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0:
-                                    if (e instanceof RequestError) {
-                                        throw e;
-                                    }
-                                    this.logger.error(e, "virdee-client error");
-                                    if (retries === 0) {
-                                        throw new Error("Maximum retries exceeded");
-                                    }
-                                    return [4 /*yield*/, this.waitInterval()];
-                                case 1:
-                                    _a.sent();
-                                    if (this.logger && this.logger.info) {
-                                        this.logger.info("sendGraphQL retrying");
-                                    }
-                                    return [4 /*yield*/, this.sendGraphQL(query, variables, authorized, retries - 1)];
-                                case 2: return [2 /*return*/, _a.sent()];
                             }
                         });
                     }); })];

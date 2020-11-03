@@ -1,11 +1,14 @@
+import { Logger } from "pino";
 declare type VirdeeResponse = ResponseObject;
 interface ResponseObject {
     errors?: Array<unknown>;
     data?: any;
 }
-interface OptionsObject {
-    logger?: any;
+interface ClientOptions {
+    reqId: string;
+    logger: Logger;
     bearerToken?: string;
+    retries?: number;
 }
 export declare enum AuthStatus {
     noAuth = "noAuth",
@@ -14,10 +17,16 @@ export declare enum AuthStatus {
 export declare class VirdeeClient {
     url: string;
     bearerToken: string;
-    logger: any;
+    log: Logger;
+    reqId: string;
     private interval;
-    constructor(url: string, options?: OptionsObject);
-    waitInterval(): Promise<unknown>;
-    sendGraphQL(query: string, variables?: Record<string, unknown>, authorized?: AuthStatus, retries?: number): Promise<VirdeeResponse>;
+    private retries;
+    constructor(url: string, options: ClientOptions);
+    private waitInterval;
+    sendGraphQL(query: string, authStatus: AuthStatus, variables?: Record<string, unknown>): Promise<VirdeeResponse>;
+    sendGraphQLAuth(query: string, variables?: Record<string, unknown>): Promise<VirdeeResponse>;
+    sendGraphQLUnauth(query: string, variables?: Record<string, unknown>): Promise<VirdeeResponse>;
+    private internalSendGraphQLRetries;
+    private internalSendGraphQL;
 }
 export {};

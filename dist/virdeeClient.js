@@ -140,27 +140,22 @@ var VirdeeClient = /** @class */ (function () {
     };
     VirdeeClient.prototype.internalSendGraphQL = function (query, variables, headers) {
         return __awaiter(this, void 0, void 0, function () {
-            var _this = this;
+            var response, status;
             return __generator(this, function (_a) {
-                return [2 /*return*/, node_fetch_1.default(this.url, {
-                        method: "POST",
-                        headers: headers,
-                        body: JSON.stringify({ query: query, variables: variables }),
-                    }).then(function (res) { return __awaiter(_this, void 0, void 0, function () {
-                        var json, err;
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0: return [4 /*yield*/, res.json()];
-                                case 1:
-                                    json = _a.sent();
-                                    if (res.status !== 200) {
-                                        err = new RequestError("status: " + res.status + " " + JSON.stringify(json));
-                                        throw err;
-                                    }
-                                    return [2 /*return*/, json];
-                            }
-                        });
-                    }); })];
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, node_fetch_1.default(this.url, {
+                            method: "POST",
+                            headers: headers,
+                            body: JSON.stringify({ query: query, variables: variables }),
+                        })];
+                    case 1:
+                        response = _a.sent();
+                        status = response === null || response === void 0 ? void 0 : response.status;
+                        if (status !== 200) {
+                            throw new RequestError("status: " + status);
+                        }
+                        return [2 /*return*/, response.json()];
+                }
             });
         });
     };

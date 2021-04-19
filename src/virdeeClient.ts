@@ -106,21 +106,18 @@ export class VirdeeClient {
     variables: Record<string, unknown> | unknown,
     headers: { [key: string]: string }
   ): Promise<VirdeeResponse> {
-    return fetch(this.url, {
+    const response = await fetch(this.url, {
       method: "POST",
       headers,
       body: JSON.stringify({ query, variables }),
-    }).then(async (res) => {
-      const json = await res.json();
-
-      if (res.status !== 200) {
-        const err = new RequestError(
-          `status: ${res.status} ${JSON.stringify(json)}`
-        );
-        throw err;
-      }
-
-      return json;
     });
+
+    const status = response?.status;
+
+    if (status !== 200) {
+      throw new RequestError(`status: ${status}`);
+    }
+
+    return response.json();
   }
 }

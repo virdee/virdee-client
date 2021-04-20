@@ -22,11 +22,9 @@ export declare class VirdeeClient {
     private interval;
     private retries;
     constructor(url: string, options: ClientOptions);
-    private waitInterval;
     sendGraphQL(query: string, authStatus: AuthStatus, variables?: Record<string, unknown>): Promise<VirdeeResponse>;
     sendGraphQLAuth(query: string, variables?: Record<string, unknown>): Promise<VirdeeResponse>;
     sendGraphQLUnauth(query: string, variables?: Record<string, unknown>): Promise<VirdeeResponse>;
-    private internalSendGraphQLRetries;
     private internalSendGraphQL;
 }
 export {};

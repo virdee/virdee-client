@@ -72,33 +72,30 @@ var VirdeeClient = /** @class */ (function () {
         this.reqId = options.reqId;
         this.retries = options.retries || 5;
     }
-    VirdeeClient.prototype.waitInterval = function (interval) {
-        return new Promise(function (resolve) { return setTimeout(resolve, interval); });
-    };
     VirdeeClient.prototype.sendGraphQL = function (query, authStatus, variables) {
         return __awaiter(this, void 0, void 0, function () {
             return __generator(this, function (_a) {
-                return [2 /*return*/, this.internalSendGraphQLRetries(query, authStatus, variables)];
+                return [2 /*return*/, this.internalSendGraphQL(query, authStatus, variables)];
             });
         });
     };
     VirdeeClient.prototype.sendGraphQLAuth = function (query, variables) {
         return __awaiter(this, void 0, void 0, function () {
             return __generator(this, function (_a) {
-                return [2 /*return*/, this.internalSendGraphQLRetries(query, AuthStatus.auth, variables)];
+                return [2 /*return*/, this.internalSendGraphQL(query, AuthStatus.auth, variables)];
             });
         });
     };
     VirdeeClient.prototype.sendGraphQLUnauth = function (query, variables) {
         return __awaiter(this, void 0, void 0, function () {
             return __generator(this, function (_a) {
-                return [2 /*return*/, this.internalSendGraphQLRetries(query, AuthStatus.noAuth, variables)];
+                return [2 /*return*/, this.internalSendGraphQL(query, AuthStatus.noAuth, variables)];
             });
         });
     };
-    VirdeeClient.prototype.internalSendGraphQLRetries = function (query, authorized, variables) {
+    VirdeeClient.prototype.internalSendGraphQL = function (query, authorized, variables) {
         return __awaiter(this, void 0, void 0, function () {
-            var headers, i, e_1, interval;
+            var headers, unknownErrorMessage, response, jsonResponse, error_1, textResponse, message, error_2, message;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
@@ -109,52 +106,47 @@ var VirdeeClient = /** @class */ (function () {
                         if (authorized === AuthStatus.auth) {
                             headers["Authorization"] = "Bearer " + this.bearerToken;
                         }
-                        i = 0;
+                        unknownErrorMessage = "Unknown error";
                         _a.label = 1;
                     case 1:
-                        if (!(i < this.retries)) return [3 /*break*/, 7];
-                        _a.label = 2;
+                        _a.trys.push([1, 9, , 10]);
+                        return [4 /*yield*/, node_fetch_1.default(this.url, {
+                                method: "POST",
+                                headers: headers,
+                                body: JSON.stringify({ query: query, variables: variables }),
+                            })];
                     case 2:
-                        _a.trys.push([2, 4, , 6]);
-                        return [4 /*yield*/, this.internalSendGraphQL(query, variables, headers)];
-                    case 3: return [2 /*return*/, _a.sent()];
-                    case 4:
-                        e_1 = _a.sent();
-                        this.log.error(e_1, "virdee-client error");
-                        if (e_1 instanceof RequestError) {
-                            throw e_1;
-                        }
-                        interval = this.interval + i * 100;
-                        return [4 /*yield*/, this.waitInterval(interval)];
-                    case 5:
-                        _a.sent();
-                        this.log.info("sendGraphQL retrying");
-                        return [3 /*break*/, 6];
-                    case 6:
-                        i++;
-                        return [3 /*break*/, 1];
-                    case 7: throw new Error("Maximum retries exceeded");
-                }
-            });
-        });
-    };
-    VirdeeClient.prototype.internalSendGraphQL = function (query, variables, headers) {
-        return __awaiter(this, void 0, void 0, function () {
-            var response, status;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0: return [4 /*yield*/, node_fetch_1.default(this.url, {
-                            method: "POST",
-                            headers: headers,
-                            body: JSON.stringify({ query: query, variables: variables }),
-                        })];
-                    case 1:
                         response = _a.sent();
-                        status = response === null || response === void 0 ? void 0 : response.status;
-                        if (status !== 200) {
-                            throw new RequestError("status: " + status);
+                        _a.label = 3;
+                    case 3:
+                        _a.trys.push([3, 6, , 8]);
+                        if (!(response === null || response === void 0 ? void 0 : response.ok)) return [3 /*break*/, 5];
+                        return [4 /*yield*/, response.json()];
+                    case 4:
+                        jsonResponse = _a.sent();
+                        return [2 /*return*/, jsonResponse];
+                    case 5: 
+                    // If response not okay, throw.
+                    throw new Error("Response is not ok");
+                    case 6:
+                        error_1 = _a.sent();
+                        return [4 /*yield*/, response.text()];
+                    case 7:
+                        textResponse = _a.sent();
+                        message = unknownErrorMessage;
+                        if (error_1 instanceof Error) {
+                            message = error_1.message;
                         }
-                        return [2 /*return*/, response.json()];
+                        throw new Error("errorMessage: " + message + "; responseText: " + textResponse + "; responseStatus: " + response.status);
+                    case 8: return [3 /*break*/, 10];
+                    case 9:
+                        error_2 = _a.sent();
+                        message = unknownErrorMessage;
+                        if (error_2 instanceof Error) {
+                            message = error_2.message;
+                        }
+                        throw new Error(message);
+                    case 10: return [2 /*return*/];
                 }
             });
         });

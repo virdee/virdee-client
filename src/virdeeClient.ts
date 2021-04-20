@@ -42,36 +42,32 @@ export class VirdeeClient {
     this.retries = options.retries || 5;
   }
 
-  private waitInterval(interval: number): Promise<unknown> {
-    return new Promise((resolve) => setTimeout(resolve, interval));
-  }
-
   async sendGraphQL(
     query: string,
     authStatus: AuthStatus,
     variables?: Record<string, unknown>
   ): Promise<VirdeeResponse> {
-    return this.internalSendGraphQLRetries(query, authStatus, variables);
+    return this.internalSendGraphQL(query, authStatus, variables);
   }
 
   async sendGraphQLAuth(
     query: string,
     variables?: Record<string, unknown>
   ): Promise<VirdeeResponse> {
-    return this.internalSendGraphQLRetries(query, AuthStatus.auth, variables);
+    return this.internalSendGraphQL(query, AuthStatus.auth, variables);
   }
 
   async sendGraphQLUnauth(
     query: string,
     variables?: Record<string, unknown>
   ): Promise<VirdeeResponse> {
-    return this.internalSendGraphQLRetries(query, AuthStatus.noAuth, variables);
+    return this.internalSendGraphQL(query, AuthStatus.noAuth, variables);
   }
 
-  private async internalSendGraphQLRetries(
+  private async internalSendGraphQL(
     query: string,
     authorized: AuthStatus,
-    variables?: Record<string, unknown>
+    variables: Record<string, unknown> | unknown
   ): Promise<VirdeeResponse> {
     const headers: { [key: string]: string } = {
       "Content-Type": "application/json",
@@ -82,42 +78,49 @@ export class VirdeeClient {
       headers["Authorization"] = `Bearer ${this.bearerToken}`;
     }
 
-    for (let i = 0; i < this.retries; i++) {
-      try {
-        return await this.internalSendGraphQL(query, variables, headers);
-      } catch (e) {
-        this.log.error(e, "virdee-client error");
+    const unknownErrorMessage = "Unknown error";
 
-        if (e instanceof RequestError) {
-          throw e;
+    try {
+      const response = await fetch(this.url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ query, variables }),
+      });
+
+      try {
+        if (response?.ok) {
+          const jsonResponse = await response.json();
+
+          return jsonResponse;
+        }
+        // If response not okay, throw.
+        throw new Error("Response is not ok");
+      } catch (error) {
+        const textResponse = await response.text();
+        // If error in try, raise error with message, response text, and response status.
+
+        let message = unknownErrorMessage;
+
+        if (error instanceof Error) {
+          message = error.message;
         }
 
-        const interval = this.interval + i * 100; // Increase interval by 100 msed on each retry
-        await this.waitInterval(interval);
-        this.log.info("sendGraphQL retrying");
+        throw new Error(
+          `errorMessage: ${message}; responseText: ${textResponse}; responseStatus: ${response.status}`
+        );
       }
+    } catch (error) {
+      /* If request fails or error when calling .json or .text; 
+      Raise the error so we can see and log it in the service using virdee client 
+      */
+
+      let message = unknownErrorMessage;
+
+      if (error instanceof Error) {
+        message = error.message;
+      }
+
+      throw new Error(message);
     }
-
-    throw new Error("Maximum retries exceeded");
-  }
-
-  private async internalSendGraphQL(
-    query: string,
-    variables: Record<string, unknown> | unknown,
-    headers: { [key: string]: string }
-  ): Promise<VirdeeResponse> {
-    const response = await fetch(this.url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ query, variables }),
-    });
-
-    const status = response?.status;
-
-    if (status !== 200) {
-      throw new RequestError(`status: ${status}`);
-    }
-
-    return response.json();
   }
 }

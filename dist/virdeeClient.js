@@ -51,6 +51,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.VirdeeClient = exports.AuthStatus = void 0;
 var node_fetch_1 = require("node-fetch");
+var util_1 = require("./util");
 var AuthStatus;
 (function (AuthStatus) {
     AuthStatus["noAuth"] = "noAuth";
@@ -95,7 +96,7 @@ var VirdeeClient = /** @class */ (function () {
     };
     VirdeeClient.prototype.internalSendGraphQL = function (query, authorized, variables) {
         return __awaiter(this, void 0, void 0, function () {
-            var headers, unknownErrorMessage, response, jsonResponse, error_1, textResponse, message, error_2, message;
+            var headers, response, jsonResponse, error_1, textResponse, message, error_2, message;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
@@ -106,7 +107,6 @@ var VirdeeClient = /** @class */ (function () {
                         if (authorized === AuthStatus.auth) {
                             headers["Authorization"] = "Bearer " + this.bearerToken;
                         }
-                        unknownErrorMessage = "Unknown error";
                         _a.label = 1;
                     case 1:
                         _a.trys.push([1, 9, , 10]);
@@ -133,18 +133,12 @@ var VirdeeClient = /** @class */ (function () {
                         return [4 /*yield*/, response.text()];
                     case 7:
                         textResponse = _a.sent();
-                        message = unknownErrorMessage;
-                        if (error_1 instanceof Error) {
-                            message = error_1.message;
-                        }
+                        message = util_1.generateErrorMessage(error_1);
                         throw new Error("errorMessage: " + message + "; responseText: " + textResponse + "; responseStatus: " + response.status);
                     case 8: return [3 /*break*/, 10];
                     case 9:
                         error_2 = _a.sent();
-                        message = unknownErrorMessage;
-                        if (error_2 instanceof Error) {
-                            message = error_2.message;
-                        }
+                        message = util_1.generateErrorMessage(error_2);
                         throw new Error(message);
                     case 10: return [2 /*return*/];
                 }

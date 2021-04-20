@@ -1,5 +1,6 @@
 import fetch from "node-fetch";
 import { Logger } from "pino";
+import { generateErrorMessage } from "./util";
 
 type VirdeeResponse = ResponseObject;
 
@@ -78,8 +79,6 @@ export class VirdeeClient {
       headers["Authorization"] = `Bearer ${this.bearerToken}`;
     }
 
-    const unknownErrorMessage = "Unknown error";
-
     try {
       const response = await fetch(this.url, {
         method: "POST",
@@ -99,11 +98,7 @@ export class VirdeeClient {
         const textResponse = await response.text();
         // If error in try, raise error with message, response text, and response status.
 
-        let message = unknownErrorMessage;
-
-        if (error instanceof Error) {
-          message = error.message;
-        }
+        const message = generateErrorMessage(error);
 
         throw new Error(
           `errorMessage: ${message}; responseText: ${textResponse}; responseStatus: ${response.status}`
@@ -114,11 +109,7 @@ export class VirdeeClient {
       Raise the error so we can see and log it in the service using virdee client 
       */
 
-      let message = unknownErrorMessage;
-
-      if (error instanceof Error) {
-        message = error.message;
-      }
+      const message = generateErrorMessage(error);
 
       throw new Error(message);
     }

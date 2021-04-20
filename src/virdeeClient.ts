@@ -1,19 +1,17 @@
 import fetch from "node-fetch";
 import { Logger } from "pino";
-import { generateErrorMessage } from "./util";
 
 type VirdeeResponse = ResponseObject;
 
 interface ResponseObject {
   errors?: Array<unknown>;
-  data?: any;
+  data?: unknown;
 }
 
 interface ClientOptions {
   reqId: string;
   logger: Logger;
   bearerToken?: string;
-  retries?: number;
 }
 
 export enum AuthStatus {
@@ -21,26 +19,17 @@ export enum AuthStatus {
   auth = "auth",
 }
 
-class RequestError extends Error {
-  constructor(message: string) {
-    super(message);
-  }
-}
-
 export class VirdeeClient {
   public url: string;
   public bearerToken: string;
   public log: Logger;
   public reqId: string;
-  private interval = 200;
-  private retries: number;
 
   constructor(url: string, options: ClientOptions) {
     this.url = url;
     this.bearerToken = options.bearerToken || "";
     this.log = options.logger;
     this.reqId = options.reqId;
-    this.retries = options.retries || 5;
   }
 
   async sendGraphQL(
@@ -79,39 +68,40 @@ export class VirdeeClient {
       headers["Authorization"] = `Bearer ${this.bearerToken}`;
     }
 
+    const response = await fetch(this.url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ query, variables }),
+    });
+
+    let textResponse: string | undefined = await response.text();
+    let jsonResponse: VirdeeResponse | undefined;
+
     try {
-      const response = await fetch(this.url, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ query, variables }),
-      });
-
       try {
-        if (response?.ok) {
-          const jsonResponse = await response.json();
-
-          return jsonResponse;
-        }
-        // If response not okay, throw.
-        throw new Error("Response is not ok");
-      } catch (error) {
-        const textResponse = await response.text();
-        // If error in try, raise error with message, response text, and response status.
-
-        const message = generateErrorMessage(error);
-
-        throw new Error(
-          `errorMessage: ${message}; responseText: ${textResponse}; responseStatus: ${response.status}`
-        );
+        jsonResponse = JSON.parse(textResponse); // This may throw an exception on bad JSON format
+        textResponse = undefined; // Json parsing succeeded so no need to log the text
+      } catch (e) {
+        throw new Error("VirdeeClientError - Error parsing JSON data");
       }
-    } catch (error) {
-      /* If request fails or error when calling .json or .text; 
-      Raise the error so we can see and log it in the service using virdee client 
-      */
 
-      const message = generateErrorMessage(error);
+      if (!response?.ok) {
+        throw new Error("VirdeeClientError - Bad response");
+      }
 
-      throw new Error(message);
+      return jsonResponse as VirdeeResponse;
+    } catch (e) {
+      this.log.error(e);
+      this.log.error(
+        {
+          status: response.status,
+          textResponse,
+          jsonResponse,
+        },
+        "VirdeeClientError - Bad response data"
+      );
+
+      throw e;
     }
   }
 }

@@ -1,17 +1,4 @@
 "use strict";
-var __extends = (this && this.__extends) || (function () {
-    var extendStatics = function (d, b) {
-        extendStatics = Object.setPrototypeOf ||
-            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
-        return extendStatics(d, b);
-    };
-    return function (d, b) {
-        extendStatics(d, b);
-        function __() { this.constructor = d; }
-        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-    };
-})();
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -51,27 +38,17 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.VirdeeClient = exports.AuthStatus = void 0;
 var node_fetch_1 = require("node-fetch");
-var util_1 = require("./util");
 var AuthStatus;
 (function (AuthStatus) {
     AuthStatus["noAuth"] = "noAuth";
     AuthStatus["auth"] = "auth";
 })(AuthStatus = exports.AuthStatus || (exports.AuthStatus = {}));
-var RequestError = /** @class */ (function (_super) {
-    __extends(RequestError, _super);
-    function RequestError(message) {
-        return _super.call(this, message) || this;
-    }
-    return RequestError;
-}(Error));
 var VirdeeClient = /** @class */ (function () {
     function VirdeeClient(url, options) {
-        this.interval = 200;
         this.url = url;
         this.bearerToken = options.bearerToken || "";
         this.log = options.logger;
         this.reqId = options.reqId;
-        this.retries = options.retries || 5;
     }
     VirdeeClient.prototype.sendGraphQL = function (query, authStatus, variables) {
         return __awaiter(this, void 0, void 0, function () {
@@ -96,7 +73,7 @@ var VirdeeClient = /** @class */ (function () {
     };
     VirdeeClient.prototype.internalSendGraphQL = function (query, authorized, variables) {
         return __awaiter(this, void 0, void 0, function () {
-            var headers, response, jsonResponse, error_1, textResponse, message, error_2, message;
+            var headers, response, textResponse, jsonResponse;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
@@ -107,40 +84,39 @@ var VirdeeClient = /** @class */ (function () {
                         if (authorized === AuthStatus.auth) {
                             headers["Authorization"] = "Bearer " + this.bearerToken;
                         }
-                        _a.label = 1;
-                    case 1:
-                        _a.trys.push([1, 9, , 10]);
                         return [4 /*yield*/, node_fetch_1.default(this.url, {
                                 method: "POST",
                                 headers: headers,
                                 body: JSON.stringify({ query: query, variables: variables }),
                             })];
-                    case 2:
+                    case 1:
                         response = _a.sent();
-                        _a.label = 3;
-                    case 3:
-                        _a.trys.push([3, 6, , 8]);
-                        if (!(response === null || response === void 0 ? void 0 : response.ok)) return [3 /*break*/, 5];
-                        return [4 /*yield*/, response.json()];
-                    case 4:
-                        jsonResponse = _a.sent();
-                        return [2 /*return*/, jsonResponse];
-                    case 5: 
-                    // If response not okay, throw.
-                    throw new Error("Response is not ok");
-                    case 6:
-                        error_1 = _a.sent();
                         return [4 /*yield*/, response.text()];
-                    case 7:
+                    case 2:
                         textResponse = _a.sent();
-                        message = util_1.generateErrorMessage(error_1);
-                        throw new Error("errorMessage: " + message + "; responseText: " + textResponse + "; responseStatus: " + response.status);
-                    case 8: return [3 /*break*/, 10];
-                    case 9:
-                        error_2 = _a.sent();
-                        message = util_1.generateErrorMessage(error_2);
-                        throw new Error(message);
-                    case 10: return [2 /*return*/];
+                        try {
+                            try {
+                                jsonResponse = JSON.parse(textResponse); // This may throw an exception on bad JSON format
+                                textResponse = undefined; // Json parsing succeeded so no need to log the text
+                            }
+                            catch (e) {
+                                throw new Error("VirdeeClientError - Error parsing JSON data");
+                            }
+                            if (!(response === null || response === void 0 ? void 0 : response.ok)) {
+                                throw new Error("VirdeeClientError - Bad response");
+                            }
+                            return [2 /*return*/, jsonResponse];
+                        }
+                        catch (e) {
+                            this.log.error(e);
+                            this.log.error({
+                                status: response.status,
+                                textResponse: textResponse,
+                                jsonResponse: jsonResponse,
+                            }, "VirdeeClientError - Bad response data");
+                            throw e;
+                        }
+                        return [2 /*return*/];
                 }
             });
         });

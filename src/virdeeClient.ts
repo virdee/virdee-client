@@ -67,7 +67,7 @@ export class VirdeeClient {
   private async internalSendGraphQL(
     query: string,
     authorized: AuthStatus,
-    variables: Record<string, unknown> | unknown
+    variables?: Record<string, unknown>
   ): Promise<VirdeeResponse> {
     const headers: { [key: string]: string } = {
       "Content-Type": "application/json",

@@ -5,13 +5,14 @@ type VirdeeResponse = ResponseObject;
 
 interface ResponseObject {
   errors?: Array<unknown>;
-  data?: unknown;
+  data?: any;
 }
 
 interface ClientOptions {
   reqId: string;
   logger: Logger;
   bearerToken?: string;
+  retries?: number;
 }
 
 export enum AuthStatus {

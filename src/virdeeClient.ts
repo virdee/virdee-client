@@ -5,14 +5,13 @@ type VirdeeResponse = ResponseObject;
 
 interface ResponseObject {
   errors?: Array<unknown>;
-  data?: any;
+  data?: unknown;
 }
 
 interface ClientOptions {
   reqId: string;
   logger: Logger;
   bearerToken?: string;
-  retries?: number;
 }
 
 export enum AuthStatus {
@@ -20,30 +19,17 @@ export enum AuthStatus {
   auth = "auth",
 }
 
-class RequestError extends Error {
-  constructor(message: string) {
-    super(message);
-  }
-}
-
 export class VirdeeClient {
   public url: string;
   public bearerToken: string;
   public log: Logger;
   public reqId: string;
-  private interval = 200;
-  private retries: number;
 
   constructor(url: string, options: ClientOptions) {
     this.url = url;
     this.bearerToken = options.bearerToken || "";
     this.log = options.logger;
     this.reqId = options.reqId;
-    this.retries = options.retries || 5;
-  }
-
-  private waitInterval(interval: number): Promise<unknown> {
-    return new Promise((resolve) => setTimeout(resolve, interval));
   }
 
   async sendGraphQL(
@@ -51,24 +37,24 @@ export class VirdeeClient {
     authStatus: AuthStatus,
     variables?: Record<string, unknown>
   ): Promise<VirdeeResponse> {
-    return this.internalSendGraphQLRetries(query, authStatus, variables);
+    return this.internalSendGraphQL(query, authStatus, variables);
   }
 
   async sendGraphQLAuth(
     query: string,
     variables?: Record<string, unknown>
   ): Promise<VirdeeResponse> {
-    return this.internalSendGraphQLRetries(query, AuthStatus.auth, variables);
+    return this.internalSendGraphQL(query, AuthStatus.auth, variables);
   }
 
   async sendGraphQLUnauth(
     query: string,
     variables?: Record<string, unknown>
   ): Promise<VirdeeResponse> {
-    return this.internalSendGraphQLRetries(query, AuthStatus.noAuth, variables);
+    return this.internalSendGraphQL(query, AuthStatus.noAuth, variables);
   }
 
-  private async internalSendGraphQLRetries(
+  private async internalSendGraphQL(
     query: string,
     authorized: AuthStatus,
     variables?: Record<string, unknown>
@@ -82,45 +68,40 @@ export class VirdeeClient {
       headers["Authorization"] = `Bearer ${this.bearerToken}`;
     }
 
-    for (let i = 0; i < this.retries; i++) {
-      try {
-        return await this.internalSendGraphQL(query, variables, headers);
-      } catch (e) {
-        this.log.error(e, "virdee-client error");
-
-        if (e instanceof RequestError) {
-          throw e;
-        }
-
-        const interval = this.interval + i * 100; // Increase interval by 100 msed on each retry
-        await this.waitInterval(interval);
-        this.log.info("sendGraphQL retrying");
-      }
-    }
-
-    throw new Error("Maximum retries exceeded");
-  }
-
-  private async internalSendGraphQL(
-    query: string,
-    variables: Record<string, unknown> | unknown,
-    headers: { [key: string]: string }
-  ): Promise<VirdeeResponse> {
-    return fetch(this.url, {
+    const response = await fetch(this.url, {
       method: "POST",
       headers,
       body: JSON.stringify({ query, variables }),
-    }).then(async (res) => {
-      const json = await res.json();
+    });
 
-      if (res.status !== 200) {
-        const err = new RequestError(
-          `status: ${res.status} ${JSON.stringify(json)}`
-        );
-        throw err;
+    let textResponse: string | undefined = await response.text();
+    let jsonResponse: VirdeeResponse | undefined;
+
+    try {
+      try {
+        jsonResponse = JSON.parse(textResponse); // This may throw an exception on bad JSON format
+        textResponse = undefined; // Json parsing succeeded so no need to log the text
+      } catch (e) {
+        throw new Error("VirdeeClientError - Error parsing JSON data");
       }
 
-      return json;
-    });
+      if (!response?.ok) {
+        throw new Error("VirdeeClientError - Bad response");
+      }
+
+      return jsonResponse as VirdeeResponse;
+    } catch (e) {
+      this.log.error(e);
+      this.log.error(
+        {
+          status: response.status,
+          textResponse,
+          jsonResponse,
+        },
+        "VirdeeClientError - Bad response data"
+      );
+
+      throw e;
+    }
   }
 }

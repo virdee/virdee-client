@@ -1,17 +1,4 @@
 "use strict";
-var __extends = (this && this.__extends) || (function () {
-    var extendStatics = function (d, b) {
-        extendStatics = Object.setPrototypeOf ||
-            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
-        return extendStatics(d, b);
-    };
-    return function (d, b) {
-        extendStatics(d, b);
-        function __() { this.constructor = d; }
-        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-    };
-})();
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -56,49 +43,37 @@ var AuthStatus;
     AuthStatus["noAuth"] = "noAuth";
     AuthStatus["auth"] = "auth";
 })(AuthStatus = exports.AuthStatus || (exports.AuthStatus = {}));
-var RequestError = /** @class */ (function (_super) {
-    __extends(RequestError, _super);
-    function RequestError(message) {
-        return _super.call(this, message) || this;
-    }
-    return RequestError;
-}(Error));
 var VirdeeClient = /** @class */ (function () {
     function VirdeeClient(url, options) {
-        this.interval = 200;
         this.url = url;
         this.bearerToken = options.bearerToken || "";
         this.log = options.logger;
         this.reqId = options.reqId;
-        this.retries = options.retries || 5;
     }
-    VirdeeClient.prototype.waitInterval = function (interval) {
-        return new Promise(function (resolve) { return setTimeout(resolve, interval); });
-    };
     VirdeeClient.prototype.sendGraphQL = function (query, authStatus, variables) {
         return __awaiter(this, void 0, void 0, function () {
             return __generator(this, function (_a) {
-                return [2 /*return*/, this.internalSendGraphQLRetries(query, authStatus, variables)];
+                return [2 /*return*/, this.internalSendGraphQL(query, authStatus, variables)];
             });
         });
     };
     VirdeeClient.prototype.sendGraphQLAuth = function (query, variables) {
         return __awaiter(this, void 0, void 0, function () {
             return __generator(this, function (_a) {
-                return [2 /*return*/, this.internalSendGraphQLRetries(query, AuthStatus.auth, variables)];
+                return [2 /*return*/, this.internalSendGraphQL(query, AuthStatus.auth, variables)];
             });
         });
     };
     VirdeeClient.prototype.sendGraphQLUnauth = function (query, variables) {
         return __awaiter(this, void 0, void 0, function () {
             return __generator(this, function (_a) {
-                return [2 /*return*/, this.internalSendGraphQLRetries(query, AuthStatus.noAuth, variables)];
+                return [2 /*return*/, this.internalSendGraphQL(query, AuthStatus.noAuth, variables)];
             });
         });
     };
-    VirdeeClient.prototype.internalSendGraphQLRetries = function (query, authorized, variables) {
+    VirdeeClient.prototype.internalSendGraphQL = function (query, authorized, variables) {
         return __awaiter(this, void 0, void 0, function () {
-            var headers, i, e_1, interval;
+            var headers, response, textResponse, jsonResponse;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
@@ -109,58 +84,40 @@ var VirdeeClient = /** @class */ (function () {
                         if (authorized === AuthStatus.auth) {
                             headers["Authorization"] = "Bearer " + this.bearerToken;
                         }
-                        i = 0;
-                        _a.label = 1;
+                        return [4 /*yield*/, node_fetch_1.default(this.url, {
+                                method: "POST",
+                                headers: headers,
+                                body: JSON.stringify({ query: query, variables: variables }),
+                            })];
                     case 1:
-                        if (!(i < this.retries)) return [3 /*break*/, 7];
-                        _a.label = 2;
+                        response = _a.sent();
+                        return [4 /*yield*/, response.text()];
                     case 2:
-                        _a.trys.push([2, 4, , 6]);
-                        return [4 /*yield*/, this.internalSendGraphQL(query, variables, headers)];
-                    case 3: return [2 /*return*/, _a.sent()];
-                    case 4:
-                        e_1 = _a.sent();
-                        this.log.error(e_1, "virdee-client error");
-                        if (e_1 instanceof RequestError) {
-                            throw e_1;
-                        }
-                        interval = this.interval + i * 100;
-                        return [4 /*yield*/, this.waitInterval(interval)];
-                    case 5:
-                        _a.sent();
-                        this.log.info("sendGraphQL retrying");
-                        return [3 /*break*/, 6];
-                    case 6:
-                        i++;
-                        return [3 /*break*/, 1];
-                    case 7: throw new Error("Maximum retries exceeded");
-                }
-            });
-        });
-    };
-    VirdeeClient.prototype.internalSendGraphQL = function (query, variables, headers) {
-        return __awaiter(this, void 0, void 0, function () {
-            var _this = this;
-            return __generator(this, function (_a) {
-                return [2 /*return*/, node_fetch_1.default(this.url, {
-                        method: "POST",
-                        headers: headers,
-                        body: JSON.stringify({ query: query, variables: variables }),
-                    }).then(function (res) { return __awaiter(_this, void 0, void 0, function () {
-                        var json, err;
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0: return [4 /*yield*/, res.json()];
-                                case 1:
-                                    json = _a.sent();
-                                    if (res.status !== 200) {
-                                        err = new RequestError("status: " + res.status + " " + JSON.stringify(json));
-                                        throw err;
-                                    }
-                                    return [2 /*return*/, json];
+                        textResponse = _a.sent();
+                        try {
+                            try {
+                                jsonResponse = JSON.parse(textResponse); // This may throw an exception on bad JSON format
+                                textResponse = undefined; // Json parsing succeeded so no need to log the text
                             }
-                        });
-                    }); })];
+                            catch (e) {
+                                throw new Error("VirdeeClientError - Error parsing JSON data");
+                            }
+                            if (!(response === null || response === void 0 ? void 0 : response.ok)) {
+                                throw new Error("VirdeeClientError - Bad response");
+                            }
+                            return [2 /*return*/, jsonResponse];
+                        }
+                        catch (e) {
+                            this.log.error(e);
+                            this.log.error({
+                                status: response.status,
+                                textResponse: textResponse,
+                                jsonResponse: jsonResponse,
+                            }, "VirdeeClientError - Bad response data");
+                            throw e;
+                        }
+                        return [2 /*return*/];
+                }
             });
         });
     };
